@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Unzip Source File
+        run: |
+          unzip saqr-al-yaman-final-phase-2.zip -d project_source
+          cd project_source
+          # البحث عن المجلد الذي يحتوي على ملف package.json والدخول إليه
+          if [ -f package.json ]; then
+            echo "Root target found."
+          else
+            TARGET_DIR=$(find . -name package.json -exec dirname {} \;)
+            if [ ! -z "$TARGET_DIR" ]; then
+              cd "$TARGET_DIR"
+            fi
+          fi
+          echo "CURRENT_PATH=$(pwd)" >> $GITHUB_ENV
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: '${{ env.CURRENT_PATH }}/package-lock.json'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Install Dependencies
+        run: |
+          cd ${{ env.CURRENT_PATH }}
+          npm install
+
+      - name: Build Android APK
+        run: |
+          cd ${{ env.CURRENT_PATH }}/android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yemen-falcon-release-apk
+          path: ${{ env.CURRENT_PATH }}/android/app/build/outputs/apk/release/*.apk
+
